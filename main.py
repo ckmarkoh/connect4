@@ -1,10 +1,11 @@
 import numpy as np
 import policy
 import minimaxPolicy
+import deepqPolicy
 
-WIDTH = 5
+WIDTH = 7
 HEIGHT = 6
-CONNECT = 3
+CONNECT = 4
 
 BOARD = np.zeros((WIDTH, HEIGHT))
 
@@ -90,33 +91,43 @@ def check_win(idx, posx, posy, board):
 PLAYER = {
   1:{"symbol":"x", "policy":policy.InputPolicy(1, BOARD, check_put, check_win)}, 
   #-1:{"symbol":"o", "policy":policy.RandomPolicy(-1, BOARD, check_put, check_win)}, 
-  -1:{"symbol":"o", "policy":minimaxPolicy.MinimaxPolicy(-1, BOARD, check_put, check_win)}, 
-}
+  -1:{"symbol":"o", "policy":deepqPolicy.DeepQPolicy(-1, BOARD, check_put, check_win, "model.json")}, 
+  }
+
+#dqPolicy = deepqPolicy.DeepQPolicy(1,BOARD,check_put,check_win)
+#dqPolicy.train()
 
 
-print_board(BOARD, PLAYER)
-while True:
-  winner = 0 
-  for idx in PLAYER.keys():
-    print "player :%s"%(PLAYER[idx]["symbol"])
-    while True:
-      posx = PLAYER[idx]["policy"].put()
-      posy = put(idx, posx, BOARD)
-      if posy == -1:
-        print "invalid position"
-      else:
-        print_board(BOARD, PLAYER)
-        win_result = check_win(idx, posx, posy, BOARD)
-        if win_result == "WIN":
-          winner = idx
-        elif win_result == "EVEN":
-          winner = 2 
+def train():
+  PLAYER[-1]["policy"].train("model2.json")
+
+def play():
+  print_board(BOARD, PLAYER)
+  while True:
+    winner = 0 
+    for idx in PLAYER.keys():
+      print "player :%s"%(PLAYER[idx]["symbol"])
+      while True:
+        posx = PLAYER[idx]["policy"].put()
+        posy = put(idx, posx, BOARD)
+        if posy == -1:
+          print "invalid position"
+        else:
+          print_board(BOARD, PLAYER)
+          win_result = check_win(idx, posx, posy, BOARD)
+          if win_result == "WIN":
+            winner = idx
+          elif win_result == "EVEN":
+            winner = 2 
+          break
+      if winner != 0:
+        if winner in PLAYER.keys():
+          print "winner is :%s"%(PLAYER[winner]["symbol"])
+        else:
+          print "even"
         break
     if winner != 0:
-      if winner in PLAYER.keys():
-        print "winner is :%s"%(PLAYER[winner]["symbol"])
-      else:
-        print "even"
       break
-  if winner != 0:
-    break
+
+if __name__ == "__main__":
+  play()

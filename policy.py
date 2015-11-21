@@ -25,6 +25,6 @@ class RandomPolicy(Policy):
   def put(self):
     while True: 
       pos = int(random.random()*self._board.shape[0])
-      if(self._check_put != -1):
+      if(self._check_put(pos,self._board) != -1):
         return pos
         
