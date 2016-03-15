@@ -24,12 +24,20 @@ class Board(object):
         self._bdata = np.zeros((self._width, self._height))
 
 
-    def to_state_string(self, me):
+    def to_state_string_str(self, me):
         s = "%d" % (me + 1)
         for row in range(self._bdata.shape[1]):
             s += " "
             for col in range(self._bdata.shape[0]):
                 s += "%d" % (self._bdata[col, row] + 1)
+        return s
+
+    def to_state_string(self, me):
+        s = (me + 1)
+        for row in range(self._bdata.shape[1]):
+            for col in range(self._bdata.shape[0]):
+                s *= 3
+                s += (self._bdata[col, row] + 1)
         return s
 
     def get_random_pos(self):

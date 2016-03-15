@@ -10,16 +10,18 @@ class MctsPolicy(Policy):
         self._STATE = {}
         self._state_count = 0
         self._tree = []
-        self._NS = {}
-        self._N = {}
-        self._Q = {}
+        self._NSNQ = {}
+        #self._NS = {}
+        #self._N = {}
+        #self._Q = {}
         self._c = 0.5
 
     def put(self):
         self._tree = []
-        self._NS = {}
-        self._N = {}
-        self._Q = {}
+        self._NSNQ = {}
+        # self._NS = {}
+        # self._N = {}
+        # self._Q = {}
         iter = 3000
         perct = (iter / 100.)
         for i in range(3000):
@@ -30,7 +32,7 @@ class MctsPolicy(Policy):
             self.simulate()
         s = self._board.to_state_string(self._myid)
         # print s
-        a = self.select_move(s, self._board, self._myid)
+        a, _ = self.select_move(s, self._board, self._myid)
         return a
 
     def simulate(self):
@@ -45,15 +47,18 @@ class MctsPolicy(Policy):
     def sim_default(self, board, cur):
         while True:
             pos_x, pos_y = board.get_random_pos()
-            board.put(cur, pos_x)
-            if board.check_win(cur, pos_x, pos_y) == "WIN":
+            board.putxy(cur, pos_x, pos_y)
+            win_stat_str = board.check_win(cur, pos_x, pos_y)
+            if win_stat_str == "WIN":
+                # if board.check_win(cur, pos_x, pos_y) == "WIN":
                 if self._myid == cur:
                     win_state = 1
                     return win_state
                 else:
                     win_state = -1
                     return win_state
-            elif board.check_win(cur, pos_x, pos_y) == "EVEN":
+            if win_stat_str == "EVEN":
+                # elif board.check_win(cur, pos_x, pos_y) == "EVEN":
                 win_state = 0
                 return win_state
             cur = self.get_next_player(cur)
@@ -71,43 +76,66 @@ class MctsPolicy(Policy):
                 # s_array.append([s, a])
                 return s_array, win_state, cur
             else:
-                pos_x = self.select_move(s, board, cur)
-                pos_y = board.check_put(pos_x)
+                pos_x, pos_y = self.select_move(s, board, cur)
+                # board.check_put(pos_x)
                 s_array.append([s, pos_x])
-                board.put(cur, pos_x)
-                if board.check_win(cur, pos_x, pos_y) == "WIN":
+                board.putxy(cur, pos_x, pos_y)
+                win_stat_str = board.check_win(cur, pos_x, pos_y)
+                if win_stat_str == "WIN":
                     if self._myid == cur:
                         win_state = 1
                         return s_array, win_state, cur
                     else:
                         win_state = -1
                         return s_array, win_state, cur
-                elif board.check_win(cur, pos_x, pos_y) == "EVEN":
+
+                elif win_stat_str == "EVEN":
                     win_state = 0
                     return s_array, win_state, cur
                 cur = self.get_next_player(cur)
 
     def select_move(self, s, board, cur):
-        if self._myid == cur:
-            a_array = self._Q[s] + self._c * np.sqrt(np.divide(self._NS[s], self._N[s]))
-            a_array = sorted([x for x in enumerate(a_array)], key=lambda x: x[1], reverse=True)
-            for ai in a_array:
-                if board.check_put(ai[0]) != -1:
-                    return ai[0]
-            assert False
-        else:
-            a_array = self._Q[s] - self._c * np.sqrt(np.divide(self._NS[s], self._N[s]))
-            a_array = sorted([x for x in enumerate(a_array)], key=lambda x: x[1], reverse=False)
-            for ai in a_array:
-                if board.check_put(ai[0]) != -1:
-                    return ai[0]
-            assert False
+        add_sign = 1
+        sort_reverse = True
+        if self._myid != cur:
+            add_sign = -1
+            sort_reverse = False
+        n_item = self._NSNQ[s]
+        a_array = np.add(n_item["Q"],
+                         add_sign * self._c *
+                         np.sqrt(np.divide(n_item["NS"], n_item["N"])))
+        a_array = sorted([x for x in enumerate(a_array)], key=lambda x: x[1], reverse=sort_reverse)
+        for ai in a_array:
+            pos = board.check_put(ai[0])
+            if pos != -1:
+                return ai[0], pos
+        assert False
+        # if self._myid == cur:
+        #    a_array = self._Q[s] + self._c * np.sqrt(np.divide(self._NS[s], self._N[s]))
+        #    a_array = sorted([x for x in enumerate(a_array)], key=lambda x: x[1], reverse=True)
+        #    for ai in a_array:
+        #        pos = board.check_put(ai[0])
+        #        if pos != -1:
+        #            return ai[0], pos
+        #    assert False
+        # else:
+        #    a_array = self._Q[s] - self._c * np.sqrt(np.divide(self._NS[s], self._N[s]))
+        #    a_array = sorted([x for x in enumerate(a_array)], key=lambda x: x[1], reverse=False)
+        #    for ai in a_array:
+        #        pos = board.check_put(ai[0])
+        #        if pos != -1:
+        #            return ai[0], pos
+        #    assert False
 
     def new_node(self, s):
         self._tree.append(s)
-        self._NS[s] = 0.01
-        self._N[s] = [0.01] * (self._board._bdata.shape[0])
-        self._Q[s] = [0.01] * (self._board._bdata.shape[0])
+        self._NSNQ[s] = {"NS": 0.01,
+                         "N": [0.01] * (self._board._bdata.shape[0]),
+                         "Q": [0.01] * (self._board._bdata.shape[0]),
+                         }
+        # self._NS[s] = 0.01
+        # self._N[s] = [0.01] * (self._board._bdata.shape[0])
+        # self._Q[s] = [0.01] * (self._board._bdata.shape[0])
 
     def backup(self, s_array, win_state):
         assert win_state != None
@@ -117,8 +145,13 @@ class MctsPolicy(Policy):
             assert sa[1] != None
             # if sa[1] == None:
             #   return
-            self._NS[sa[0]] += 1
-            self._N[sa[0]][sa[1]] += 1
-            self._Q[sa[0]][sa[1]] += (win_state - self._Q[sa[0]][sa[1]]) / self._N[sa[0]][sa[1]]
+            n_item = self._NSNQ[sa[0]]
+            n_item["NS"] += 1
+            n_item["N"][sa[1]] += 1
+            n_item["Q"][sa[1]] += \
+                (win_state - n_item["Q"][sa[1]]) / n_item["N"][sa[1]]
+            # self._NS[sa[0]] += 1
+            # self._N[sa[0]][sa[1]] += 1
+            # self._Q[sa[0]][sa[1]] += (win_state - self._Q[sa[0]][sa[1]]) / self._N[sa[0]][sa[1]]
 
 # return self.search_pick(self._myid, self._board)
